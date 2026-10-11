@@ -1,14 +1,17 @@
-<script setup lang="ts">
+<script setup>
 import { computed, ref } from 'vue'
-import { getStoredAccount, loginCheck } from '@/services/auth'
+import { useRouter } from 'vue-router'
+import { loginCheck } from '@/api/auth'
+import { getStoredAccount } from '@/utils/session'
 
-defineProps<{
-  notice?: string
-}>()
+defineProps({
+  notice: {
+    type: String,
+    default: '',
+  },
+})
 
-const emit = defineEmits<{
-  login: [account: string]
-}>()
+const router = useRouter()
 
 const account = ref(getStoredAccount() || 'admin')
 const password = ref('')
@@ -25,7 +28,7 @@ async function submitLogin() {
 
   try {
     await loginCheck(account.value.trim(), password.value)
-    emit('login', account.value.trim())
+    router.push({ name: 'StreamingChat' })
   } catch (err) {
     error.value = err instanceof Error ? err.message : '登录失败'
   } finally {

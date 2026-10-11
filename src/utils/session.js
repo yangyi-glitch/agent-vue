@@ -9,7 +9,7 @@ export function getStoredAccount() {
   return localStorage.getItem(ACCOUNT_STORAGE_KEY) || ''
 }
 
-export function saveSession(token: string, account: string) {
+export function saveSession(token, account) {
   localStorage.setItem(TOKEN_STORAGE_KEY, token)
   localStorage.setItem(ACCOUNT_STORAGE_KEY, account)
 }

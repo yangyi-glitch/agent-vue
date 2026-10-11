@@ -1,33 +1,26 @@
-<script setup lang="ts">
+<script setup>
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
-import { chat, reloadFolder, streamChat, type ChatMode } from '@/services/ai'
-import { getOrCreateConversationId, resetConversationId } from '@/services/conversation'
+import { useRouter } from 'vue-router'
+import { chat, reloadFolder, streamChat } from '@/api/ai'
+import { getOrCreateConversationId, resetConversationId } from '@/utils/conversation'
+import { clearSession, getStoredAccount } from '@/utils/session'
 
-const props = defineProps<{
-  account: string
-}>()
+const props = defineProps({
+  account: {
+    type: String,
+    default: '',
+  },
+})
 
-const emit = defineEmits<{
-  logout: [reason?: string]
-}>()
-
-type Role = 'assistant' | 'user' | 'system'
-
-interface ChatMessage {
-  id: number
-  role: Role
-  content: string
-  time: string
-  status?: 'streaming' | 'done' | 'error'
-}
+const router = useRouter()
 
 const draft = ref('')
-const mode = ref<ChatMode>('stream')
+const mode = ref('stream')
 const isSending = ref(false)
 const isReloading = ref(false)
 const error = ref('')
 const conversationId = ref(getOrCreateConversationId())
-const messages = ref<ChatMessage[]>([
+const messages = ref([
   {
     id: Date.now(),
     role: 'assistant',
@@ -38,8 +31,8 @@ const messages = ref<ChatMessage[]>([
   },
 ])
 
-const scrollPanel = ref<HTMLElement | null>(null)
-let activeController: AbortController | null = null
+const scrollPanel = ref(null)
+let activeController = null
 
 const suggestions = [
   '帮我概括一下当前项目结构',
@@ -48,6 +41,7 @@ const suggestions = [
   '现在是什么时间？',
 ]
 
+const account = computed(() => props.account || getStoredAccount() || '未知用户')
 const canSend = computed(() => draft.value.trim().length > 0 && !isSending.value)
 const shortConversationId = computed(() => conversationId.value.slice(0, 8))
 const currentStatus = computed(() => {
@@ -63,8 +57,8 @@ function formatTime() {
   }).format(new Date())
 }
 
-function pushMessage(role: Role, content: string, status: ChatMessage['status'] = 'done') {
-  const message: ChatMessage = {
+function pushMessage(role, content, status = 'done') {
+  const message = {
     id: Date.now() + Math.random(),
     role,
     content,
@@ -83,7 +77,7 @@ async function scrollToBottom() {
   }
 }
 
-function useSuggestion(text: string) {
+function useSuggestion(text) {
   if (isSending.value) return
   draft.value = text
 }
@@ -125,7 +119,7 @@ async function sendMessage() {
       assistantMessage.content += assistantMessage.content ? '\n\n已停止生成。' : '已停止生成。'
     } else {
       if (err instanceof Error && err.message === 'AUTH_EXPIRED') {
-        emit('logout', '登录已失效，请重新登录')
+        redirectToLogin('登录已失效，请重新登录')
         return
       }
       assistantMessage.status = 'error'
@@ -153,7 +147,7 @@ async function refreshKnowledge() {
     pushMessage('system', '知识库已刷新，后续回答会基于最新文件。')
   } catch (err) {
     if (err instanceof Error && err.message === 'AUTH_EXPIRED') {
-      emit('logout', '登录已失效，请重新登录')
+      redirectToLogin('登录已失效，请重新登录')
       return
     }
     error.value = err instanceof Error ? err.message : '知识库刷新失败'
@@ -178,20 +172,25 @@ function clearChat() {
   error.value = ''
 }
 
-async function copyText(text: string) {
+async function copyText(text) {
   await navigator.clipboard?.writeText(text)
 }
 
-function handleKeydown(event: KeyboardEvent) {
+function handleKeydown(event) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     void sendMessage()
   }
 }
 
+function redirectToLogin(reason) {
+  clearSession()
+  router.push(reason ? { name: 'LoginPage', query: { notice: reason } } : { name: 'LoginPage' })
+}
+
 function logout() {
   activeController?.abort()
-  emit('logout')
+  redirectToLogin()
 }
 
 onBeforeUnmount(() => {
@@ -245,7 +244,7 @@ onBeforeUnmount(() => {
 
       <div class="account-panel">
         <span>当前账号</span>
-        <strong>{{ props.account || '未知用户' }}</strong>
+        <strong>{{ account }}</strong>
       </div>
 
       <div class="account-panel">

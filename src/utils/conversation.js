@@ -12,7 +12,7 @@ export function getStoredConversationId() {
   return localStorage.getItem(CONVERSATION_STORAGE_KEY) || ''
 }
 
-export function saveConversationId(conversationId: string) {
+export function saveConversationId(conversationId) {
   localStorage.setItem(CONVERSATION_STORAGE_KEY, conversationId)
 }
 
